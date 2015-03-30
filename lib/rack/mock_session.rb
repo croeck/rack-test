@@ -29,6 +29,16 @@ module Rack
       @last_request = Rack::Request.new(env)
       status, headers, body = @app.call(@last_request.env)
 
+      if headers && headers.key?('Transfer-Encoding') && headers['Transfer-Encoding'] == 'chunked'
+        processed_body = ''
+        body.each do |chunk_line|
+          # remove final CRLF
+          chunk_size, chunk = chunk_line.chomp.split("\r\n", 2)
+          processed_body << chunk if chunk_size.to_i(16) > 0
+        end
+        body = processed_body
+      end
+
       @last_response = MockResponse.new(status, headers, body, env["rack.errors"].flush)
       body.close if body.respond_to?(:close)
 
